@@ -11,6 +11,7 @@
 #include "max6675.h"
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
+
 LiquidCrystal_I2C lcd(0x27,16,2);  //sometimes the adress is not 0x27. Change to 0x3f if it dosn't work.
 
 /*    i2c LCD Module  ==>   Arduino
@@ -33,10 +34,10 @@ MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 //Variables
 int last_CH1_state = 0;
 bool zero_cross_detected = false;
-int firing_delay = 8000;
+int firing_delay = 7400;
 
 //////////////////////////////////////////////////////
-int maximum_firing_delay = 8000;
+int maximum_firing_delay = 7400;
 /*Later in the code you will se that the maximum delay after the zero detection
  * is 7400. Why? Well, we know that the 220V AC voltage has a frequency of around 50-60HZ so
  * the period is between 20ms and 16ms, depending on the country. We control the firing
@@ -48,7 +49,7 @@ unsigned long previousMillis = 0;
 unsigned long currentMillis = 0;
 int temp_read_Delay = 500;
 int real_temperature = 0;
-int setpoint = 28;
+int setpoint = 101;
 bool pressed_1 = false;
 bool pressed_2 = false;
 int zero_crosscount=0;
@@ -67,6 +68,9 @@ int PID_p = 0;    int PID_i = 0;    int PID_d = 0;
 
 
 
+
+
+
 void setup() {
   //Define the pins
   pinMode (firing_pin,OUTPUT); 
@@ -74,7 +78,7 @@ void setup() {
   PCICR |= (1 << PCIE0);    //enable PCMSK0 scan                                                 
   PCMSK0 |= (1 << PCINT0);  //Set pin D8 (zero cross input) trigger an interrupt on state change.
   pinMode(3,OUTPUT);        //Define D3 as output for the DIAC pulse
-  Serial.begin(9600);       //Start serial com with the BT module (RX and TX pins   
+  Serial.begin(9600);        //Start serial com with the BT module (RX and TX pins   
   lcd.init();       //Start the LC communication
   lcd.backlight();  //Turn on backlight for LCD
 }
@@ -91,7 +95,7 @@ void loop() {
 
     PID_error = setpoint - real_temperature;        //Calculate the pid ERROR
     
-    if(PID_error > 2)                              //integral constant will only affect errors below 2ºC             
+    if(PID_error > 5)                              //integral constant will only affect errors below 5ºC             
     {PID_i = 0;}
     
     PID_p = kp * PID_error;                         //Calculate the P value
@@ -102,8 +106,6 @@ void loop() {
     PID_d = kd*((PID_error - previous_error)/elapsedTime);  //Calculate the D value
     PID_value = PID_p + PID_i + PID_d;                      //Calculate total PID value
 
-    if(PID_error < -5)  
-    {PID_value = 0;}
     //We define firing delay range between 0 and 7400. Read above why 7400!!!!!!!
     if(PID_value < 0)
     {      PID_value = 0;       }
@@ -121,8 +123,8 @@ void loop() {
     lcd.print(real_temperature);
     //lcd.print(zero_crosscount);
     previous_error = PID_error; //Remember to store the previous error.
-    Serial.println(real_temperature);
-    
+    Serial.print(real_temperature);
+    Serial.println(";");
   }
   if(Serial.available()>0)
    { 
@@ -138,7 +140,7 @@ void loop() {
     {
       delayMicroseconds(maximum_firing_delay - PID_value); //This delay controls the power
       digitalWrite(firing_pin,HIGH);
-      delayMicroseconds(PID_value+1000);
+      delayMicroseconds(100);
       digitalWrite(firing_pin,LOW);
       zero_cross_detected = false;
       zero_crosscount=zero_crosscount+1;
