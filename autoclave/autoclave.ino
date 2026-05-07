@@ -1,23 +1,8 @@
-
-
-/*    Max6675 Module  ==>   Arduino
- *    CS              ==>     D10
- *    SO              ==>     D9
- *    SCK             ==>     D12
- *    Vcc             ==>     Vcc (5v)
- *    Gnd             ==>     Gnd      */
-
-//LCD config
 #include "max6675.h"
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 LiquidCrystal_I2C lcd(0x27,16,2);  //sometimes the adress is not 0x27. Change to 0x3f if it dosn't work.
 
-/*    i2c LCD Module  ==>   Arduino
-     SCL             ==>     A5
-     SDA             ==>     A4
-     Vcc             ==>     Vcc (5v)
-     Gnd             ==>     Gnd      */
 
 //Inputs and outputs
 int firing_pin = 3;
@@ -48,7 +33,7 @@ unsigned long previousMillis = 0;
 unsigned long currentMillis = 0;
 int temp_read_Delay = 3000;
 int real_temperature = 0;
-int setpoint = 100;
+int setpoint = 111;
 bool pressed_1 = false;
 bool pressed_2 = false;
 int zero_crosscount=0;
@@ -120,7 +105,6 @@ void loop() {
     lcd.print("Real temp: ");
     lcd.setCursor(11,1);
     lcd.print(real_temperature);
-    //lcd.print(zero_crosscount);
     previous_error = PID_error; //Remember to store the previous error.
     Serial.println(real_temperature);
     
@@ -128,51 +112,16 @@ void loop() {
   if(Serial.available()>0)
    { 
       setpoint = Serial.read();
-      
-      //Serial.println(Serial.read());      
-      //Serial.println(zero_crosscount);
-      //In my case I've used value = map(Serial.read(),0,255,7000,10); for better results
    }
    
   //If the zero cross interruption was detected we create the 100us firing pulse  
   
       digitalWrite(firing_pin,HIGH);
       delayMicroseconds(PID_value*1000); //This delay controls the power
-      digitalWrite(firing_pin,LOW);
-      delayMicroseconds((maximum_firing_delay - PID_value)*1000);
+      if(PID_value < maximum_firing_delay){
+        digitalWrite(firing_pin,LOW);
+        delayMicroseconds((maximum_firing_delay - PID_value)*1000);
+      }
       
     
-}
-//End of void loop
-// |
-// |
-// |
-// v
-//See the interruption vector
-
-
-
-
-
-
-
-
-
-//This is the interruption routine (pind D8(zero cross), D11(increase) and D12(decrease))
-//----------------------------------------------
-
-ISR(PCINT0_vect){
-  ///////////////////////////////////////Input from optocoupler
-  if(PINB & B00000001){            //We make an AND with the state register, We verify if pin D8 is HIGH???
-    if(last_CH1_state == 0){       //If the last state was 0, then we have a state change...
-      zero_cross_detected = true;  //We have detected a state change! We need both falling and rising edges
-    }
-  }
-  else if(last_CH1_state == 1){    //If pin 8 is LOW and the last state was HIGH then we have a state change      
-    zero_cross_detected = true;    //We haev detected a state change!  We need both falling and rising edges.
-    last_CH1_state = 0;            //Store the current state into the last state for the next loop
-    }
-
-
-//End of interruption vector for pins on port B: D8-D13 */
 }
