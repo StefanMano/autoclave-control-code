@@ -12,9 +12,12 @@ byte thermoDO = 9;
 byte thermoCS = 10;
 byte thermoCLK = 12;
 byte calibrare = 0;
-float t_at_T = 0; 
-byte sec = 0;
-byte min = 0;
+float t_at_T = 0;
+float t_off = 0; 
+byte sec_on = 0;
+byte sec_off = 0;
+byte min_on = 0;
+byte min_off = 0;
 
 //pins:
 
@@ -29,6 +32,7 @@ const byte fixedsetpoint = setpoint;
 float set_time_h = 6;
 bool rise = true;
 int EEPROM_address = 2;
+int EEPROM_address2 = EEPROM_address + 8;
 int TOP = 15625;
 
 
@@ -41,11 +45,11 @@ ISR(INT0_vect) {
 }
 
 
-void increment_min(){
-  min++;
-  if(min % 6 == 0)
+void increment_min_on(){
+  min_on++;
+  if(min_on % 6 == 0)
     {
-      min = 0;
+      min_on = 0;
       t_at_T += 0.1;
       EEPROM.put(EEPROM_address, t_at_T);
       
@@ -58,18 +62,32 @@ void increment_min(){
       }
     }
 }
-
+void increment_min_off(){
+  min_off++;
+  if(min_off % 6 == 0)
+    {
+      min_off = 0;
+      t_off += 0.1;
+      EEPROM.put(EEPROM_address2, t_off);
+    }
+}
 ISR(TIMER1_COMPA_vect){
   if((real_temperature>=110||t_at_T>=set_time_h)&&setpoint !=0)
   {
     
-    sec++;
-    if (sec%60==0){
-      sec = 0;
-      increment_min();
+    sec_on++;
+    if (sec_on%60==0){
+      sec_on = 0;
+      increment_min_on();
     }
   }
-  
+  else if(setpoint!=0){
+    sec_off++;
+    if (sec_off%60==0){
+      sec_off = 0;
+      increment_min_off();
+    }
+  }
   }
 
 
@@ -112,6 +130,7 @@ void loop() {
                //Increase the previous time for next loop
   boolean newDataReady = 0;
   EEPROM.get(EEPROM_address,t_at_T);
+  EEPROM.get(EEPROM_address2,t_off);
   float a,b,c;
   // check for new data/start next conversion:
   
@@ -144,17 +163,22 @@ void loop() {
   
     lcd.clear();
     lcd.setCursor(0,0);
-    lcd.print("Temp setata : ");
-    lcd.setCursor(14,0);
-    lcd.print(setpoint);
-    lcd.setCursor(8,0);
-    lcd.setCursor(0,1);
-    lcd.print("Temp reala  : ");
-    lcd.setCursor(14,1);
+    lcd.print("Temp : ");
+    lcd.setCursor(7,0);
     lcd.print(real_temperature);
+    lcd.setCursor(10,0);
+    lcd.print("/");
+    lcd.setCursor(11,0);
+    lcd.print(setpoint);
+    lcd.setCursor(14,0);
+    lcd.print("°C");
+    lcd.setCursor(0,1);
+    lcd.print("Timp heat/steril = ");
     lcd.setCursor(0,2);
-    lcd.print("ore >110C = ");
-    lcd.setCursor(12,2);
+    lcd.print(t_off);
+    lcd.setCursor(4,2);
+    lcd.print("/");
+    lcd.setCursor(5,2);
     lcd.print(t_at_T);
     lcd.setCursor(0,3);
     lcd.print("Reset counter V");
@@ -163,12 +187,16 @@ void loop() {
 
   if((real_temperature>=110||t_at_T>=set_time_h)&&setpoint !=0)
   {
-    lcd.setCursor(17,2);
-    lcd.print("on");
+    lcd.setCursor(10,2);
+    lcd.print("sterilizat");
+  }
+  else if(setpoint!=0){
+    lcd.setCursor(10,2);
+    lcd.print("incalzit");
   }
   else{
-    lcd.setCursor(17,2);
-    lcd.print("off");
+    lcd.setCursor(13,2);
+    lcd.print("gata");
   }
   //enable timer when temp high enough
   
@@ -193,9 +221,12 @@ void loop() {
           reset_flag = false;
         if(del>=1000){
           EEPROM.put(EEPROM_address, 0.0f);
-           min = 0;
-          sec = 0;
+           min_on = 0;
+          sec_on = 0;
           reset_flag = false;
+          EEPROM.put(EEPROM_address2, 0.0f);
+           min_off = 0;
+          sec_off = 0;
         }
 
     }
